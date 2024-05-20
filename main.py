@@ -192,4 +192,4 @@ def load_commands(directory):
 
 load_commands("src/commands")
 
-bot.run('Bot token goes here.')
+bot.run('here goes ur bot token, make sure to enable the message content intent in developer portal, then add ur token here')
