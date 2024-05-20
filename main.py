@@ -192,4 +192,4 @@ def load_commands(directory):
 
 load_commands("src/commands")
 
-bot.run('now ur job is to put ur token here, (bot token to be exact)')
+bot.run('Bot token goes here.')
