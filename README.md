@@ -1,3 +1,3 @@
-# Envy Nexus
+# Envy Aiya
 
-Envy Nexus is a cross server communication Discord bot. We will likely add more features in the future (eg, IRC relay, other messanging service support, etc)
+Envy Aiya is a spiritual successor to Restarter v3, a great bot that was unfortunately abandoned.
