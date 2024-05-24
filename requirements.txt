@@ -1,2 +1,6 @@
 nextcord
 asyncio
+setuptools
+arrow
+pynacl
+requests

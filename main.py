@@ -1,26 +1,62 @@
 import nextcord
 from nextcord.ext import commands, tasks
+from nextcord import ChannelType, Interaction, SlashOption
+from nextcord.abc import GuildChannel
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import os
 import asyncio
 import re
 from urllib.parse import urlparse
 from flask import Flask, request
 import threading
+import arrow
+from io import BytesIO
+from time import sleep
 
+startDay = arrow.now().format('YYYY-MM-DD')
+startTime = datetime.now()
 intents = nextcord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
+DEV_GUILD_ID = 1227835833386663947
+guild_ids = [DEV_GUILD_ID]
+guild_to_voice_client = dict()
 
-statuses = ["Connecting servers", "Chatting with other servers", "Making servers popular"]
+
+statuses = ["Beta!", "Ear Dentist approved!", "Or is it?", "PLAP PLAP PLAP PLAP", "Fun for the whole family!"]
+
+async def _get_or_create_voice_client(ctx: nextcord.Interaction):
+    joined = False
+    if ctx.guild.id in guild_to_voice_client:
+        voice_client, _ = guild_to_voice_client[ctx.guild.id]
+    else:
+        voice_channel = _context_to_voice_channel(ctx)
+        if voice_channel is None:
+            voice_client = None
+        else:
+            voice_client = await voice_channel.connect()
+            joined = True
+    return (voice_client, joined)
+
+def _context_to_voice_channel(ctx):
+    return ctx.user.voice.channel if ctx.user.voice else None
+
+async def terminate_stale_voice_connections():
+    while True:
+        await asyncio.sleep(5)
+        for k in list(guild_to_voice_client.keys()):
+            v = guild_to_voice_client[k]
+            voice_client, last_used = v
+            if datetime.utcnow() - last_used > timedelta(minutes=10):
+                await voice_client.disconnect()
+                guild_to_voice_client.pop(k)
 
 async def update_status():
     for status in statuses:
         await bot.change_presence(activity=nextcord.Game(name=status))
-        await asyncio.sleep(5)
+        await asyncio.sleep(60)
 
 conn = sqlite3.connect('nexus.db')
 c = conn.cursor()
@@ -74,8 +110,8 @@ async def on_message(message):
 
     if str(message.author.id) in banned_users:
         embed = nextcord.Embed(
-            title="You are banned from using Nexus",
-            description="Please contact an administrator for more information.",
+            title="You are banned from cross-server chatting.",
+            description="You were banned for breaking the rules of the Envy Community Guidelines.",
             color=nextcord.Color.red()
         )
         try:
@@ -105,7 +141,7 @@ async def on_message(message):
             if not allow_message:
                 embed = nextcord.Embed(
                     title="Alert!",
-                    description="You cannot send links on Nexus for obvious reasons.",
+                    description="You cannot send blacklisted links on Nexus.",
                     color=nextcord.Color.red()
                 )
                 try:
@@ -123,8 +159,8 @@ async def on_message(message):
 async def send_embed(message):
     server = bot.get_guild(message.guild.id)
     if server:
-        if message.guild.id == 1228831727749697648:
-            embed_color = nextcord.Color.greyple()
+        if message.guild.id == 1227835833386663947:
+            embed_color = nextcord.Color.green()
         else:
             embed_color = nextcord.Color.blue()
             
@@ -134,7 +170,7 @@ async def send_embed(message):
         )
         icon_url = message.author.avatar.url if message.author.avatar else None
         if icon_url:
-            embed.set_author(name=f"{message.author.display_name} | {message.author.id} | {admin_emoji if message.author.id in admin_ids else ''} {owner_emoji if message.author.id in owner_ids else ''}", icon_url=icon_url)
+            embed.set_author(name=f"{message.author.display_name} {admin_emoji if message.author.id in admin_ids else ''} {owner_emoji if message.author.id in owner_ids else ''}", icon_url=icon_url)
         else:
             embed.set_author(name=f"{message.author.display_name} | {message.author.id} | {admin_emoji if message.author.id in admin_ids else ''} {owner_emoji if message.author.id in owner_ids else ''}")
 
@@ -143,22 +179,19 @@ async def send_embed(message):
         
         if message.author.id in admin_ids or message.author.id in owner_ids:
             embed.color = nextcord.Color.red()
-
-        embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1090262735478071360/1238197066271031376/NexusChat.png?ex=663e6861&is=663d16e1&hm=9715dd1020c504b6f14bb8b1de8b8c60b0376caadd4ace3b2bc71662b748749f&")
         
         icon_url_guild = message.guild.icon.url if message.guild.icon else None
         if icon_url_guild:
-            embed.set_footer(text=f"{server.name} - Nexus Solar - {format_timestamp(message.created_at.timestamp())}", icon_url=icon_url_guild)
+            embed.set_footer(text=f"{server.name} - {format_timestamp(message.created_at.timestamp())}", icon_url=icon_url_guild)
         else:
-            embed.set_footer(text=f"{server.name} - Nexus Solar - {format_timestamp(message.created_at.timestamp())}")
+            embed.set_footer(text=f"{server.name} - Envy Nexus - {format_timestamp(message.created_at.timestamp())}")
             
         if message.reference and message.reference.message_id:
             referenced_message = await message.channel.fetch_message(message.reference.message_id)
             if referenced_message and referenced_message.author.bot:
                 referenced_description = referenced_message.embeds[0].description
                 original_sender = referenced_message.embeds[0].author.name.split(' | ')[0]
-                embed.title = f"RE: {original_sender}"
-                embed.insert_field_at(0, name="Original Message", value=referenced_description, inline=False)
+                embed.insert_field_at(0, name="Replying to:", value=referenced_description, inline=False)
                 embed.description = message.content
         
         c.execute("SELECT channel_id FROM channel_settings")
@@ -192,4 +225,4 @@ def load_commands(directory):
 
 load_commands("src/commands")
 
-bot.run('here goes ur bot token, make sure to enable the message content intent in developer portal, then add ur token here')
+bot.run('token goes here')
